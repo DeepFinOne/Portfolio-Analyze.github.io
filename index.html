@@ -13,9 +13,7 @@
         <h1 class="text-3xl font-bold text-center mb-6">Portfolio Analyzer</h1>
 
         <div id="input-section" class="bg-white shadow-md rounded p-6 mb-6">
-            <div id="inputs">
-                <!-- Input fields will be dynamically generated here -->
-            </div>
+            <div id="inputs"></div>
             <div class="mt-4">
                 <label for="period" class="block text-sm font-medium text-gray-700">Select Period</label>
                 <select id="period" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
@@ -36,19 +34,11 @@
             <h2 class="text-2xl font-bold mb-4">Analysis Results</h2>
             <div id="results" class="text-gray-700"></div>
             <canvas id="allocation-chart" class="mt-6"></canvas>
-            <canvas id="correlation-chart" class="mt-6"></canvas>
-            <canvas id="risk-return-chart" class="mt-6"></canvas>
         </div>
     </div>
 
     <script>
         const inputsContainer = document.getElementById('inputs');
-        const outputSection = document.getElementById('output-section');
-        const resultsDiv = document.getElementById('results');
-        const allocationChartCtx = document.getElementById('allocation-chart');
-        const correlationChartCtx = document.getElementById('correlation-chart');
-        const riskReturnChartCtx = document.getElementById('risk-return-chart');
-
         let inputCount = 3;
 
         function createInputRow(index) {
@@ -61,91 +51,64 @@
             return div;
         }
 
-        function addInputFields() {
-            inputCount++;
-            inputsContainer.appendChild(createInputRow(inputCount));
-        }
-
-        document.getElementById('add-input').addEventListener('click', addInputFields);
-
-        // Initial setup with three input rows
         for (let i = 1; i <= inputCount; i++) {
             inputsContainer.appendChild(createInputRow(i));
         }
 
-        async function analyzePortfolio() {
+        document.getElementById('add-input').addEventListener('click', () => {
+            inputCount++;
+            inputsContainer.appendChild(createInputRow(inputCount));
+        });
+
+        document.getElementById('analyze').addEventListener('click', async () => {
             const tickers = [];
             const investments = [];
-
             for (let i = 1; i <= inputCount; i++) {
                 const ticker = document.getElementById(`ticker-${i}`).value.trim();
                 const investment = document.getElementById(`investment-${i}`).value.trim();
-
                 if (ticker && investment) {
                     tickers.push(ticker);
                     investments.push(parseFloat(investment));
                 }
             }
+            const period = document.getElementById('period').value;
 
             if (tickers.length === 0 || investments.length === 0) {
-                alert("Please provide valid inputs for all fields.");
+                alert('Please provide valid inputs.');
                 return;
             }
 
-            const period = document.getElementById('period').value;
-
             try {
-                const response = await fetch('/analyze', {
+                const response = await fetch('http://localhost:5000/analyze', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ tickers, investments, period })
                 });
-
-                if (!response.ok) throw new Error('Error analyzing portfolio.');
-
                 const data = await response.json();
                 displayResults(data);
             } catch (error) {
-                alert(error.message);
+                alert('Error analyzing portfolio: ' + error.message);
             }
-        }
-
-        document.getElementById('analyze').addEventListener('click', analyzePortfolio);
+        });
 
         function displayResults(data) {
+            const resultsDiv = document.getElementById('results');
             resultsDiv.innerHTML = `
-                <p><strong>Expected Annual Return:</strong> ${data.portfolio_return}%</p>
-                <p><strong>Portfolio Volatility:</strong> ${data.portfolio_volatility}%</p>
-                <p><strong>Sharpe Ratio:</strong> ${data.sharpe_ratio}</p>
+                <p><strong>Expected Return:</strong> ${data.expected_return}%</p>
+                <p><strong>Volatility:</strong> ${data.volatility}%</p>
             `;
-
-            // Render allocation pie chart
-            new Chart(allocationChartCtx, {
+            new Chart(document.getElementById('allocation-chart'), {
                 type: 'pie',
                 data: {
                     labels: data.tickers,
                     datasets: [{
                         data: data.weights,
-                        backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF']
+                        backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56']
                     }]
                 }
             });
-
-            // Render correlation heatmap (dummy example)
-            new Chart(correlationChartCtx, {
-                type: 'bar',
-                data: {
-                    labels: ['A-B', 'A-C', 'B-C'],
-                    datasets: [{
-                        label: 'Correlation',
-                        data: data.correlation,
-                        backgroundColor: ['#36A2EB']
-                    }]
-                }
-            });
-
-            outputSection.classList.remove('hidden');
         }
     </script>
 </body>
 </html>
+
