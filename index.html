@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portfolio Analyzer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+</head>
+<body class="bg-gray-100">
+    <div class="container mx-auto p-6">
+        <h1 class="text-3xl font-bold text-center mb-6">Portfolio Analyzer</h1>
+
+        <div id="input-section" class="bg-white shadow-md rounded p-6 mb-6">
+            <div id="inputs">
+                <!-- Input fields will be dynamically generated here -->
+            </div>
+            <div class="mt-4">
+                <label for="period" class="block text-sm font-medium text-gray-700">Select Period</label>
+                <select id="period" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
+                    <option value="1mo">1 Month</option>
+                    <option value="3mo">3 Months</option>
+                    <option value="6mo">6 Months</option>
+                    <option value="1y">1 Year</option>
+                    <option value="5y">5 Years</option>
+                </select>
+            </div>
+            <div class="flex justify-between mt-6">
+                <button id="add-input" class="bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-700">Add More Inputs</button>
+                <button id="analyze" class="bg-green-500 text-white py-2 px-4 rounded hover:bg-green-700">Analyze Portfolio</button>
+            </div>
+        </div>
+
+        <div id="output-section" class="hidden bg-white shadow-md rounded p-6">
+            <h2 class="text-2xl font-bold mb-4">Analysis Results</h2>
+            <div id="results" class="text-gray-700"></div>
+            <canvas id="allocation-chart" class="mt-6"></canvas>
+            <canvas id="correlation-chart" class="mt-6"></canvas>
+            <canvas id="risk-return-chart" class="mt-6"></canvas>
+        </div>
+    </div>
+
+    <script>
+        const inputsContainer = document.getElementById('inputs');
+        const outputSection = document.getElementById('output-section');
+        const resultsDiv = document.getElementById('results');
+        const allocationChartCtx = document.getElementById('allocation-chart');
+        const correlationChartCtx = document.getElementById('correlation-chart');
+        const riskReturnChartCtx = document.getElementById('risk-return-chart');
+
+        let inputCount = 3;
+
+        function createInputRow(index) {
+            const div = document.createElement('div');
+            div.className = "grid grid-cols-2 gap-4 mb-4";
+            div.innerHTML = `
+                <input type="text" id="ticker-${index}" placeholder="Ticker (e.g., AAPL)" class="w-full p-2 border border-gray-300 rounded">
+                <input type="number" id="investment-${index}" placeholder="Investment (e.g., 1000)" class="w-full p-2 border border-gray-300 rounded">
+            `;
+            return div;
+        }
+
+        function addInputFields() {
+            inputCount++;
+            inputsContainer.appendChild(createInputRow(inputCount));
+        }
+
+        document.getElementById('add-input').addEventListener('click', addInputFields);
+
+        // Initial setup with three input rows
+        for (let i = 1; i <= inputCount; i++) {
+            inputsContainer.appendChild(createInputRow(i));
+        }
+
+        async function analyzePortfolio() {
+            const tickers = [];
+            const investments = [];
+
+            for (let i = 1; i <= inputCount; i++) {
+                const ticker = document.getElementById(`ticker-${i}`).value.trim();
+                const investment = document.getElementById(`investment-${i}`).value.trim();
+
+                if (ticker && investment) {
+                    tickers.push(ticker);
+                    investments.push(parseFloat(investment));
+                }
+            }
+
+            if (tickers.length === 0 || investments.length === 0) {
+                alert("Please provide valid inputs for all fields.");
+                return;
+            }
+
+            const period = document.getElementById('period').value;
+
+            try {
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tickers, investments, period })
+                });
+
+                if (!response.ok) throw new Error('Error analyzing portfolio.');
+
+                const data = await response.json();
+                displayResults(data);
+            } catch (error) {
+                alert(error.message);
+            }
+        }
+
+        document.getElementById('analyze').addEventListener('click', analyzePortfolio);
+
+        function displayResults(data) {
+            resultsDiv.innerHTML = `
+                <p><strong>Expected Annual Return:</strong> ${data.portfolio_return}%</p>
+                <p><strong>Portfolio Volatility:</strong> ${data.portfolio_volatility}%</p>
+                <p><strong>Sharpe Ratio:</strong> ${data.sharpe_ratio}</p>
+            `;
+
+            // Render allocation pie chart
+            new Chart(allocationChartCtx, {
+                type: 'pie',
+                data: {
+                    labels: data.tickers,
+                    datasets: [{
+                        data: data.weights,
+                        backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF']
+                    }]
+                }
+            });
+
+            // Render correlation heatmap (dummy example)
+            new Chart(correlationChartCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['A-B', 'A-C', 'B-C'],
+                    datasets: [{
+                        label: 'Correlation',
+                        data: data.correlation,
+                        backgroundColor: ['#36A2EB']
+                    }]
+                }
+            });
+
+            outputSection.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
